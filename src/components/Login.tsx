@@ -1,30 +1,33 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // ✅ استيراد Link
+import { useNavigate, Link } from 'react-router-dom';
 import { Form, Button, Alert, Container, Card, Spinner } from 'react-bootstrap';
+import { Formik } from 'formik';
+import * as Yup from 'yup';
 import axios from 'axios';
+import { useState } from 'react';
 
 const API_URL = 'https://ecommerce.routemisr.com/api/v1/auth/signin';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const initialValues = {
+    email: '',
+    password: '',
+  };
 
-    if (!email || !password) {
-      setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
-      return;
-    }
+  const validationSchema = Yup.object({
+    email: Yup.string().email('بريد إلكتروني غير صالح').required('البريد الإلكتروني مطلوب'),
+    password: Yup.string().min(6, 'كلمة المرور يجب أن تكون على الأقل 6 أحرف').required('كلمة المرور مطلوبة'),
+  });
 
+  const handleSubmit = async (values: typeof initialValues) => {
     setError('');
     setLoading(true);
 
     try {
-      const { data } = await axios.post(API_URL, { email, password });
+      const { data } = await axios.post(API_URL, values);
 
       if (!data.token) {
         throw new Error('لم يتم استلام token');
@@ -33,11 +36,9 @@ const Login = () => {
       localStorage.setItem('token', data.token);
       window.dispatchEvent(new Event('authChanged'));
       navigate('/Home');
-
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message ||
-        err.message ||
-        'حدث خطأ أثناء تسجيل الدخول';
+      const errorMessage =
+        err.response?.data?.message || err.message || 'حدث خطأ أثناء تسجيل الدخول';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -51,45 +52,55 @@ const Login = () => {
 
         {error && <Alert variant="danger" className="text-center">{error}</Alert>}
 
-        <Form onSubmit={handleSubmit}>
-          <Form.Group className="mb-3">
-            <Form.Label>البريد الإلكتروني</Form.Label>
-            <Form.Control
-              type="email"
-              placeholder="أدخل البريد الإلكتروني"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </Form.Group>
+        <Formik
+          initialValues={initialValues}
+          validationSchema={validationSchema}
+          onSubmit={handleSubmit}
+        >
+          {({ handleSubmit, handleChange, values, touched, errors }) => (
+            <Form noValidate onSubmit={handleSubmit}>
+              <Form.Group className="mb-3">
+                <Form.Label>البريد الإلكتروني</Form.Label>
+                <Form.Control
+                  type="email"
+                  name="email"
+                  placeholder="أدخل البريد الإلكتروني"
+                  value={values.email}
+                  onChange={handleChange}
+                  isInvalid={touched.email && !!errors.email}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.email}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>كلمة المرور</Form.Label>
-            <Form.Control
-              type="password"
-              placeholder="أدخل كلمة المرور"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>كلمة المرور</Form.Label>
+                <Form.Control
+                  type="password"
+                  name="password"
+                  placeholder="أدخل كلمة المرور"
+                  value={values.password}
+                  onChange={handleChange}
+                  isInvalid={touched.password && !!errors.password}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.password}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={loading}
-            className="w-100"
-          >
-            {loading ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-2" />
-                جاري الدخول...
-              </>
-            ) : 'تسجيل الدخول'}
-          </Button>
-        </Form>
+              <Button variant="primary" type="submit" disabled={loading} className="w-100">
+                {loading ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    جاري الدخول...
+                  </>
+                ) : 'تسجيل الدخول'}
+              </Button>
+            </Form>
+          )}
+        </Formik>
 
-        {/* ✅ زر الانتقال إلى صفحة التسجيل */}
         <div className="text-center mt-3">
           <span>ليس لديك حساب؟ </span>
           <Link to="/Register">إنشاء حساب</Link>
